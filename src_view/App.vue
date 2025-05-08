@@ -1,15 +1,14 @@
 <script setup>
 // import { RouterLink, RouterView } from 'vue-router'
-import {ref, useTemplateRef} from 'vue';
-import { onMounted } from 'vue';
-import { Document, ArrowLeft, ArrowRight, Headset,Check} from '@element-plus/icons-vue';
-import mic_red from '@/assets/mic.png';
-import mic_green from '@/assets/mic_green.png';
-
+import {ref, computed} from 'vue';
+import {onMounted} from 'vue';
+import {
+  Document, ArrowLeft, ArrowRight, Headset, Check, SuccessFilled, RefreshLeft
+} from '@element-plus/icons-vue';
+import {ElMessage, ElMessageBox} from 'element-plus'
 
 let filePath = ref(null);
 let sentences = ref(null);
-let mic_status_pic = ref(mic_red);
 let start_record = ref(false);
 let end_record = ref(false);
 let cur_sentence = ref(null);
@@ -17,34 +16,20 @@ let cur_sentence = ref(null);
 // onMounted(async ()=>{
 // });
 
-async function selectFile() {
-  filePath.value = await window.eAPI.openFile();
-  if(filePath.value){
-    let fileContents = await window.eAPI.readTrainText(filePath.value);
-    if(fileContents&&fileContents.length>0){
-      sentences.value = fileContents.map((s, index)=>{
-        return {i: s.i, c: s. c, index} //主要是增加一个index
-      })
-      onSentenceClick(sentences.value[0], 0);
-    }
-  }
-}
-
-async function startRecord(){
-  mic_status_pic.value = mic_green;
-  start_record.value = true;
-  end_record.value = false;
-}
-
-async function endRecord(){
-  mic_status_pic.value = mic_red;
-  start_record.value = false;
-  end_record.value = true;
-}
-
+//计算锚点的属性
+const anchorPrev = computed(() => {
+  if(cur_sentence.value.index===0) return null;
+  return `#${sentences.value[cur_sentence.value.index-1].i}`;
+});
+const anchorNext = computed(() => {
+  if(cur_sentence.value.index===sentences.length-1) return null;
+  return `#${sentences.value[cur_sentence.value.index+1].i}`;
+});
 
 function onSentenceClick(sentence){
   cur_sentence.value = sentence;
+  start_record.value = false;
+  end_record.value = false;
 }
 
 function seekTo(where){
@@ -52,6 +37,72 @@ function seekTo(where){
     onSentenceClick(sentences.value[cur_sentence.value.index-1]);
   }else{
     onSentenceClick(sentences.value[cur_sentence.value.index+1]);
+  }
+}
+
+//选择并打开训练材料文件train_text.txt
+async function selectFile() {
+  filePath.value = await window.eAPI.openFile();
+  if(filePath.value){
+    let fileContents = await window.eAPI.readTrainText(filePath.value);
+    if(fileContents&&fileContents.length>0){
+      sentences.value = fileContents.map((s, index)=>{
+        //主要是增加一个index和一个stauts（0未标注、1已标注）
+        return {i: s.i, c: s. c, index: index, s: 0}
+      })
+      //选中第一个
+      onSentenceClick(sentences.value[0], 0);
+    }
+  }
+}
+
+//--------------操作相关------------
+let CONTRL = {
+  REVIEW: 'REVIEW'
+}
+let cur_control = ref(null);
+
+async function startRecord(){
+  start_record.value = true;
+  end_record.value = false;
+}
+
+async function endRecord(){
+  start_record.value = false;
+  end_record.value = true;
+}
+
+async function redoRecordIfy(){
+  try{
+    await ElMessageBox.confirm('是否要重新录制该内容？', '请确认', {
+      confirmButtonText: '是的',
+      cancelButtonText: '取消',
+      closeOnClickModal: false,
+      type: 'warning',
+    });
+    cur_sentence.value.s = 0; //修改状态
+  }catch(e){
+  }
+}
+
+async function review(){
+  cur_control.value = CONTRL.REVIEW;
+}
+
+async function stopReview(){
+  cur_control.value = null;
+}
+
+async function confirmVoice(){
+  try{
+    await ElMessageBox.confirm('确定完成该录音？', '请确认', {
+        confirmButtonText: '是的',
+        cancelButtonText: '取消',
+        closeOnClickModal: false,
+        type: 'warning',
+    });
+    cur_sentence.value.s = 1; //修改状态
+  }catch(e){
   }
 }
 </script>
@@ -71,19 +122,48 @@ function seekTo(where){
           <el-text class="mx-1 c-1">{{cur_sentence.c}}</el-text>
         </div>
         <div class="confirm">
-          <el-button :icon="Headset" circle />
-          <el-button :icon="Check" circle />
+          <template v-if="1">
+            <el-button v-if="cur_control!==CONTRL.REVIEW" circle @click="review" :disabled="cur_sentence.s===0"
+                       class="review-btn" :class="cur_sentence.s===1?'reviewable':null" >
+              <el-icon :class="cur_sentence.s===1?'icon-reviewable':null"><Headset /></el-icon>
+            </el-button>
+            <el-button v-if="cur_control===CONTRL.REVIEW" circle @click="stopReview">
+              <icon style="height: 16px">
+                <svg viewBox="0 0 1024 1024" width="16" height="16">
+                  <path d="M163.386696 158.717861l705.252399 0 0 705.21556-705.252399 0 0-705.21556Z" p-id="3183" fill="red"></path>
+                </svg>
+              </icon>
+            </el-button>
+          </template>
+          <el-button :icon="Check" circle  @click="confirmVoice" class="confirm-btn"
+                     :class="cur_sentence.s===1?'processed':null" :disabled="cur_sentence.s===1"/>
         </div>
         <el-divider style="border-color: #f3f3f3;">
-          <img v-if="start_record" src="@/assets/wave.gif" style="height: 28px; width: 48px"/>
-          <span v-if="end_record">15″</span>
+          <img v-if="start_record||cur_control===CONTRL.REVIEW" src="@/assets/wave.gif" style="height: 28px; width: 48px"/>
+          <span v-if="(end_record||cur_sentence.s===1)&&cur_control!==CONTRL.REVIEW">15″</span>
         </el-divider>
         <div class="controller">
-          <a @click="cur_sentence.index===0?null:seekTo('prev')">
+          <a @click="cur_sentence.index===0?null:seekTo('prev')" :href="anchorPrev">
             <el-icon :size="20" class="pagectl prev" :class="cur_sentence.index===0?'disabled':null"><ArrowLeft /></el-icon>
           </a>
-          <img @touchstart.prevent="startRecord" @touchend.prevent="endRecord" :src="mic_status_pic" style="height: 48px; width: 48px"/>
-          <a @click="cur_sentence.index===sentences.length-1?null:seekTo('next')">
+          <!-- 录音按钮。录音的时候颜色不同；已经完成录音的图标不同 -->
+          <template v-if="1">
+            <el-button v-if="cur_sentence.s===0" circle :style="`height: 42px; width: 42px; background-color: ${start_record?'#299c31':'#e72b2b'}; border: none;`"
+                       @touchstart.prevent="startRecord" @touchend.prevent="endRecord">
+              <svg viewBox="0 0 1024 1024" width="20" height="20">
+                <path d="M896 490.666667a362.346667 362.346667 0 0 1-341.333333 362.046666V938.666667h192a21.333333 21.333333 0 0 1 0 42.666666H320a21.333333 21.333333
+            0 0 1 0-42.666666h192v-85.953334A362.366667 362.366667 0 0 1 170.666667 490.666667a21.333333 21.333333 0 0 1 42.666666 0c0 176.446667 143.553333 320 320
+            320s320-143.553333 320-320a21.333333 21.333333 0 0 1 42.666667 0zM317.113333 582A233.22 233.22 0 0 1 298.666667 490.666667V277.333333a234.666667 234.666667 0 1 1
+            469.333333 0v213.333334a234.726667 234.726667 0 0 1-450.886667 91.333333zM341.333333 490.666667c0 105.866667 86.133333 192 192 192s192-86.133333
+            192-192V277.333333c0-105.866667-86.133333-192-192-192S341.333333 171.466667 341.333333 277.333333z" fill="white" p-id="5303"></path>
+              </svg>
+            </el-button>
+            <el-button  v-else circle style="height: 42px; width: 42px; background-color: #e72b2b; border: none;"
+                       @click="redoRecordIfy">
+              <el-icon style="color: white; width: 20px; height: 20px;"><RefreshLeft style="width: 20px;height: 20px;"/></el-icon>
+            </el-button>
+          </template>
+          <a @click="cur_sentence.index===sentences.length-1?null:seekTo('next')" :href="anchorNext">
             <el-icon :size="20" class="pagectl next" :class="cur_sentence.index===sentences.length-1?'disabled':null"><ArrowRight /></el-icon>
           </a>
         </div>
@@ -91,15 +171,13 @@ function seekTo(where){
     </div>
     <el-divider direction="vertical" style="height: 100%; border-color: #f3f3f3;"/>
     <div class="sentence-list">
-<!--      <SentenceList :sentences="sentences" @sentence-click="onSentenceClick"-->
-<!--                    ref="slist" :seek-to-idx="seek_to_idx"/>-->
       <el-card v-for="(sentence, index) in sentences" shadow="never" @click="onSentenceClick(sentence, index)"
                :id="sentence.i" :key="sentence.i" :class="cur_sentence.i===sentence.i?'selected':null">
         <div class="sentence-card">
           <div class="s-content" :class="''">
             <el-text class="mx-1 c-1">{{ sentence.c }}</el-text>
           </div>
-          <div class="s-status">
+          <div class="s-status" :class="sentence.s===1?'processed':null">
             <el-icon :size="16"><SuccessFilled /></el-icon>
           </div>
         </div>
@@ -127,6 +205,18 @@ function seekTo(where){
 
       .confirm {
         height: 40px; display: flex; justify-content: space-between; width: 120px;
+        .review-btn {
+          color: var(--el-text-color-secondary);
+          &.reviewable, .icon-reviewable {
+            border-color: var(--el-color-primary); color: var(--el-color-primary);
+          }
+        }
+        .confirm-btn {
+          color: var(--el-text-color-secondary);
+          &.processed {
+            background-color: #26974a; color: #ffffff;
+          }
+        }
       }
 
       .sentence {
@@ -151,7 +241,8 @@ function seekTo(where){
   }
 
   .sentence-list {
-    width: 30%;  overflow-y: auto; scroll-behavior: smooth;
+    width: 30%;  overflow-y: auto; scroll-behavior: smooth; scroll-snap-type: y mandatory;
+    scroll-padding-top: 200px;
     :deep(.el-card) {
       margin: 4px 0 4px 0; cursor: pointer;
       &:hover, &.selected {
@@ -174,6 +265,9 @@ function seekTo(where){
           .s-status {
             height: 20px; width: 100%; display: flex; justify-content: end; align-items: center;
             color: var(--el-border-color-light);
+            &.processed {
+              color: #26974a;
+            }
           }
         }
       }
