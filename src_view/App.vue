@@ -22,7 +22,7 @@ const anchorPrev = computed(() => {
   return `#${sentences.value[cur_sentence.value.index-1].i}`;
 });
 const anchorNext = computed(() => {
-  if(cur_sentence.value.index===sentences.length-1) return null;
+  if(cur_sentence.value.index===sentences.value.length-1) return null;
   return `#${sentences.value[cur_sentence.value.index+1].i}`;
 });
 
@@ -149,7 +149,7 @@ async function confirmVoice(){
           <!-- 录音按钮。录音的时候颜色不同；已经完成录音的图标不同 -->
           <template v-if="1">
             <el-button v-if="cur_sentence.s===0" circle :style="`height: 42px; width: 42px; background-color: ${start_record?'#299c31':'#e72b2b'}; border: none;`"
-                       @touchstart.prevent="startRecord" @touchend.prevent="endRecord">
+                       @mousedown.prevent="startRecord" @mouseup.prevent="endRecord">
               <svg viewBox="0 0 1024 1024" width="20" height="20">
                 <path d="M896 490.666667a362.346667 362.346667 0 0 1-341.333333 362.046666V938.666667h192a21.333333 21.333333 0 0 1 0 42.666666H320a21.333333 21.333333
             0 0 1 0-42.666666h192v-85.953334A362.366667 362.366667 0 0 1 170.666667 490.666667a21.333333 21.333333 0 0 1 42.666666 0c0 176.446667 143.553333 320 320
@@ -229,7 +229,9 @@ async function confirmVoice(){
       .controller {
         flex-grow: 0; height: 100px; display: flex; justify-content: space-between; align-items: center;
         width: 200px;
-
+        &>a:hover {
+          background-color: unset;
+        }
         .pagectl {
           color: var(--color-text);
           &.disabled {

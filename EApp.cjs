@@ -22,6 +22,7 @@ const createWindow = () => {
   });
 
   win.loadFile(path.join(__dirname, './dist/index.html'));
+
   //如果是develop，则打开dev-tools
   if(process.env.NODE_ENV==="develop"){
     win.webContents.openDevTools();
@@ -56,7 +57,6 @@ const template = [
 
 const menu = Menu.buildFromTemplate(template);
 Menu.setApplicationMenu(menu);
-
 
 app.whenReady().then(() => {
   ipcService.init();
