@@ -23,40 +23,41 @@ const createWindow = () => {
 
   win.loadFile(path.join(__dirname, './dist/index.html'));
 
+  //菜单
+  const template = [
+    {
+      label: '文件',
+      submenu: [
+        {
+          label: '加载',
+          click: ()=>{
+            //发送给渲染进程，由渲染进程统一响应处理文件打开的过程
+            win.webContents.send('main:loadFile', 1);
+          }
+        },
+        { type: 'separator' },
+        {
+          label: '关闭程序',
+          click: ()=>{
+            console.log("程序关闭了");
+          }
+        }
+      ]
+    },
+    {
+      label: '关于',
+
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+
   //如果是develop，则打开dev-tools
   if(process.env.NODE_ENV==="develop"){
     win.webContents.openDevTools();
   }
 }
-
-//菜单
-const template = [
-  {
-    label: '文件',
-    submenu: [
-      {
-        label: '加载',
-        click: ()=>{
-          console.log("打开文件");
-        }
-      },
-      { type: 'separator' },
-      {
-        label: '关闭程序',
-        click: ()=>{
-          console.log("程序关闭了");
-        }
-      }
-    ]
-  },
-  {
-    label: '关于',
-
-  }
-];
-
-const menu = Menu.buildFromTemplate(template);
-Menu.setApplicationMenu(menu);
 
 app.whenReady().then(() => {
   ipcService.init();

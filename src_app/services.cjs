@@ -3,6 +3,8 @@
  */
 
 const { dialog, ipcMain } = require('electron');
+const path = require("path");
+const fs = require("node:fs/promises");
 
 const EVENTS = {
   OPEN_FILE: 'dialog:openFile',
@@ -26,12 +28,13 @@ module.exports.ipcService =  {
 
     // 读取训练文本
     ipcMain.handle(EVENTS.READ_TRAIN_TEXT, async (e, filePath)=>{
-      return [
-        {i: 'A0000', c:'我是一名知识丰富的助手，能够解答您关于科学、历史、文化、技术等领域的各种问题。我的目标是提供清晰、准确且简短的答案，帮助您快速获取所需信息。无论您是学习、工作还是对某个话题感兴趣，我都会尽力提供帮助。如果您有任何问题，请随时提问，我会尽力为您解答。'},
-        {i: 'A0001', c: '一百啊手动阀手动阀手动阀'},
-        {i: 'A0002', c: '甚至出现交易几乎停滞的情况'},
-        {i: 'A0003', c: '湖北一公司以员工名义贷款数十员工负债千万'}
-      ]
+      let content = await fs.readFile(filePath, 'utf8');
+      return content.length>0?
+             content.split('\r\n').map((ct, index)=>{
+               let fisrt_space = ct.indexOf(' ');
+               return {i: ct.substr(0, fisrt_space), c: ct.substr(fisrt_space).trim()};
+             }):
+             null;
     });
   }
 }
@@ -48,6 +51,10 @@ module.exports.eAPI = {
       // 读取训练文本
       readTrainText: async (filePath)=>{
         return await ipc.invoke(EVENTS.READ_TRAIN_TEXT, filePath);
+      },
+      // 响应主进程菜单的“加载”事件
+      onMenuLoadFile: (callback) => {
+        ipc.on('main:loadFile', (_event, value) => callback(value));
       }
     }
   }

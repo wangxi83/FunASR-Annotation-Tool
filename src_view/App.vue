@@ -13,8 +13,12 @@ let start_record = ref(false);
 let end_record = ref(false);
 let cur_sentence = ref(null);
 
-// onMounted(async ()=>{
-// });
+onMounted(async ()=>{
+  //注册一个主进程的监听，用于响应menu的打开点击事件
+  window.eAPI.onMenuLoadFile(()=>{
+    selectFile();
+  });
+});
 
 //计算锚点的属性
 const anchorPrev = computed(() => {
@@ -42,6 +46,20 @@ function seekTo(where){
 
 //选择并打开训练材料文件train_text.txt
 async function selectFile() {
+  if(sentences.value&&sentences.value.length>0){
+    try{
+      await ElMessageBox.confirm('当前已经在工作中，你的所有工作将丢失，确认要打开新文件？', '请确认', {
+        confirmButtonText: '是的',
+        cancelButtonText: '取消',
+        closeOnClickModal: false,
+        type: 'error',
+      });
+    }catch(e) {
+      //如果取消就退出了。
+      return
+    }
+  }
+  //选择并读取文件
   filePath.value = await window.eAPI.openFile();
   if(filePath.value){
     let fileContents = await window.eAPI.readTrainText(filePath.value);
