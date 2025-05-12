@@ -2,7 +2,7 @@
  * Created by wangx on 2025-04-29.
  *
  */
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require("path");
 const { ipcService } = require('./src_app/services.cjs');
 
@@ -38,15 +38,21 @@ const createWindow = () => {
         { type: 'separator' },
         {
           label: '关闭程序',
-          click: ()=>{
-            console.log("程序关闭了");
-          }
+          click: ()=>app.quit()
         }
       ]
     },
     {
       label: '关于',
-
+      click: ()=>{
+        //发送给渲染进程，由渲染进程统一响应处理文件打开的过程
+        dialog.showMessageBoxSync(win, {
+          type: 'info',
+          title: '关于',
+          message: 'Sobey DBU Xige',
+          detail: 'https://github.com/wangxi83/FunASR-Annotation-Tool'
+        });
+      }
     }
   ];
 
@@ -57,9 +63,26 @@ const createWindow = () => {
   if(process.env.NODE_ENV==="develop"){
     win.webContents.openDevTools();
   }
+
+  win.on('close', (event) => {
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'question',
+      buttons: ['是的', '取消'],
+      title: '关闭程序',
+      message: '确定要关闭吗？',
+      defaultId: 0,
+      cancelId: 1
+    });
+    if (choice === 1) {
+      event.preventDefault();
+    }
+  });
 }
 
 app.whenReady().then(() => {
   ipcService.init();
   createWindow();
 })
+
+
+
