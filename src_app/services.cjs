@@ -52,9 +52,13 @@ module.exports.eAPI = {
       readTrainText: async (filePath)=>{
         return await ipc.invoke(EVENTS.READ_TRAIN_TEXT, filePath);
       },
-      // 响应主进程菜单的“加载”事件
+      // 响应主进程菜单@see EApp.cjs win.webContents.send 的“加载”事件
       onMenuLoadFile: (callback) => {
         ipc.on('main:loadFile', (_event, value) => callback(value));
+      },
+      // 响应主进程菜单@see
+      onMenuSelectMic: (callback)=>{
+        ipc.on('main:selectMic', (_event, value) => callback(value));
       }
     }
   }

@@ -6,12 +6,16 @@ import {
   Document, ArrowLeft, ArrowRight, Headset, Check, SuccessFilled, RefreshLeft
 } from '@element-plus/icons-vue';
 import {ElMessage, ElMessageBox} from 'element-plus'
+import MyRecorder from "./utils/recorder";
+import MicSelection from "./views/MicSelection.vue";
 
 let filePath = ref(null);
 let sentences = ref(null);
 let start_record = ref(false);
 let end_record = ref(false);
 let cur_sentence = ref(null);
+let myRecorder = new MyRecorder();
+let open_mic_selection = ref(false);
 
 onMounted(async ()=>{
   //注册一个主进程的监听，用于响应menu的打开点击事件
@@ -202,6 +206,8 @@ async function confirmVoice(){
       </el-card>
     </div>
   </div>
+  <!-- 麦克风选择弹窗，由electron渲染进程菜单唤起 -->
+  <MicSelection @mic-changed="(mic)=>{myRecorder.setCurrentMic(mic)}"></MicSelection>
 </template>
 
 <style lang="scss" scoped>

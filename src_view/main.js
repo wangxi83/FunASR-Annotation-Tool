@@ -38,6 +38,14 @@ if(import.meta.env.DEV){
         {i: "A0019", c: "良好的时间管理能提高效率，减少压力。"},
         {i: "A0020", c: "可持续发展是全球关注的重点，通过绿色能源和循环经济模式，可以实现更环保的未来。"}
       ];
+    },
+    // 菜单打开文件
+    onMenuLoadFile: function(callback){
+      callback();
+    },
+    // 菜单选择麦克风
+    onMenuSelectMic: function(callback){
+      window.addEventListener('main:selectMic', callback);
     }
   }
 }

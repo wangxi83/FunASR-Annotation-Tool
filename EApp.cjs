@@ -2,7 +2,7 @@
  * Created by wangx on 2025-04-29.
  *
  */
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, systemPreferences } = require('electron');
 const path = require("path");
 const { ipcService } = require('./src_app/services.cjs');
 
@@ -35,6 +35,13 @@ const createWindow = () => {
             win.webContents.send('main:loadFile', 1);
           }
         },
+        {
+          label: '选择麦克风',
+          click: ()=>{
+            //发送给渲染进程，由渲染进程统一响应处理文件打开的过程
+            win.webContents.send('main:selectMic', 1);
+          }
+        },
         { type: 'separator' },
         {
           label: '关闭程序',
@@ -49,7 +56,7 @@ const createWindow = () => {
         dialog.showMessageBoxSync(win, {
           type: 'info',
           title: '关于',
-          message: 'Sobey DBU Xige',
+          message: '语音引擎标注工具',
           detail: 'https://github.com/wangxi83/FunASR-Annotation-Tool'
         });
       }
