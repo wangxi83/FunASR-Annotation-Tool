@@ -13,9 +13,9 @@ let filePath = ref(null);
 let sentences = ref(null);
 let start_record = ref(false);
 let end_record = ref(false);
-let cur_sentence = ref(null);
+let cur_sentence = ref({});
 let myRecorder = new MyRecorder();
-let record_data = reactive({blob: null, blobUrl: null, fileUrl:null, duration: 0});
+let record_data = reactive({blob: null, blobUrl: null, duration: 0});
 
 onMounted(async ()=>{
   //注册一个主进程的监听，用于响应menu的打开点击事件
@@ -44,8 +44,6 @@ function onSentenceClick(sentence){
   cur_sentence.value = sentence;
   start_record.value = false;
   end_record.value = false;
-  record_data.fileUrl = sentence.fileUrl;
-  record_data.duration = sentence.duration;
 }
 
 async function seekTo(where, e){
@@ -91,6 +89,7 @@ async function selectFile() {
   }
   //选择并读取文件
   filePath.value = await window.eAPI.openFile();
+  console.log(`选择的文件：${filePath.value}`);
   if(filePath.value){
     let fileContents = await window.eAPI.readTrainText(filePath.value);
     if(fileContents&&fileContents.length>0){
@@ -117,7 +116,7 @@ let CONTRL = {
 let cur_control = ref(null);
 // 录音文件状态
 const hasRecord = computed(()=>{
-  return !!(record_data.blobUrl || record_data.fileUrl);
+  return !!(record_data.blobUrl || cur_sentence.value.fileUrl);
 });
 
 async function startRecord(){
@@ -152,7 +151,10 @@ async function redoRecordIfy(){
       closeOnClickModal: false,
       type: 'warning',
     });
+    clearRecord();
     cur_sentence.value.s = 0; //修改状态
+    await window.eAPI.removeWavFile(cur_sentence.value.fileUrl);
+    cur_sentence.value.fileUrl = null;
   }catch(e){
   }
 }
@@ -178,7 +180,19 @@ async function confirmVoice(){
         closeOnClickModal: false,
         type: 'warning',
     });
-    cur_sentence.value.s = 1; //修改状态
+    // 吧blob发给主进程进行保存
+    const reader = new FileReader();
+    reader.onloadend = async ()=>{
+      const arrayBuffer = reader.result;
+      const dir = window.eAPI.getTrainTxtPath(filePath.value);
+      // 将 ArrayBuffer 通过 IPC 发送到主进程保存，得到wav文件地址
+      cur_sentence.value.fileUrl = await window.eAPI.saveRecord2File(arrayBuffer, dir);
+      console.log(`wav文件已保存：${cur_sentence.value.fileUrl}`);
+      cur_sentence.value.s = 1; //修改状态
+      cur_sentence.value.duration = record_data.duration;
+      clearRecord();
+    };
+    reader.readAsArrayBuffer(record_data.blob);
   }catch(e){
   }
 }
@@ -218,7 +232,9 @@ async function confirmVoice(){
         </div>
         <el-divider style="border-color: #f3f3f3;">
           <img v-if="start_record||cur_control===CONTRL.REVIEW" src="@/assets/wave.gif" style="height: 28px; width: 48px"/>
-          <span v-if="(end_record||cur_sentence.s===1)&&cur_control!==CONTRL.REVIEW">{{`${(record_data.duration/1000).toFixed(1)}″`}}</span>
+          <span v-if="(end_record||cur_sentence.s===1)&&cur_control!==CONTRL.REVIEW">
+            {{`${((cur_sentence.s===1?cur_sentence.duration:record_data.duration)/1000).toFixed(1)}″`}}
+          </span>
         </el-divider>
         <div class="controller">
           <a id='prev' @click="(e)=>{cur_sentence.index===0?null:seekTo('prev', e)}" :href="anchorPrev">
@@ -265,7 +281,7 @@ async function confirmVoice(){
   <!-- 麦克风选择弹窗，由electron渲染进程菜单唤起 -->
   <MicSelection @mic-changed="(mic)=>{myRecorder.setCurrentMic(mic)}"></MicSelection>
   <!-- 用于播放录制的声音 -->
-  <audio id="myAudio" :src="record_data.fileUrl||record_data.blobUrl" controls
+  <audio id="myAudio" :src="record_data.blobUrl||cur_sentence.fileUrl" controls
          @ended="stopReview" style="display: none"></audio>
 </template>
 

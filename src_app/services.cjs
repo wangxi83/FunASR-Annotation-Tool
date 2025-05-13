@@ -8,7 +8,9 @@ const fs = require("node:fs/promises");
 
 const EVENTS = {
   OPEN_FILE: 'dialog:openFile',
-  READ_TRAIN_TEXT: 'readTrainText'
+  READ_TRAIN_TEXT: 'main:readTrainText',
+  SAVE_WAV: 'main:saveRecordWAV',
+  REMOVE_WAV: 'main:removeRecordWAV'
 }
 
 // 给主进程注册处理函数使用
@@ -36,6 +38,17 @@ module.exports.ipcService =  {
              }):
              null;
     });
+
+    //将blob录音数据保存为文件，返回文件地址
+    ipcMain.handle(EVENTS.SAVE_WAV, async (e, arrayBuffer, dir)=>{
+      if(!dir) throw new Error(`${EVENTS.SAVE_WAV}必须指定一个目录`);
+      return null;
+    });
+
+    // 删除文件
+    ipcMain.handle(EVENTS.OPEN_FILE, async (e, file)=>{
+      await fs.unlink(file);
+    });
   }
 }
 
@@ -59,6 +72,18 @@ module.exports.eAPI = {
       // 响应主进程菜单@see
       onMenuSelectMic: (callback)=>{
         ipc.on('main:selectMic', (_event, value) => callback(value));
+      },
+      //将blob录音数据保存为文件，返回文件地址
+      saveRecord2File: async (arrayBuffer, dir)=>{
+        return await ipc.invoke(EVENTS.SAVE_WAV, arrayBuffer, dir);
+      },
+      //一个工具方法
+      getTrainTxtPath: (file)=>{
+        return path.resolve(file, '../');
+      },
+      //删除文件
+      removeWavFile: async (file)=>{
+        return await ipc.invoke(EVENTS.REMOVE_WAV, file);
       }
     }
   }

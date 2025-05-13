@@ -10,7 +10,7 @@ import 'element-plus/dist/index.css'
 if(import.meta.env.DEV){
   window.eAPI = {
     openFile: function(){
-      return "hello world";
+      return "C:\\Users\\wangx\\Desktop\\train_text.txt";
     },
     // 读取训练文本
     readTrainText: function (filePath){
@@ -46,6 +46,18 @@ if(import.meta.env.DEV){
     // 菜单选择麦克风
     onMenuSelectMic: function(callback){
       window.addEventListener('main:selectMic', callback);
+    },
+    //保存文件
+    saveRecord2File: function(arrayBuffer, dir){
+      return `https://downsc.chinaz.net/Files/DownLoad/sound1/202504/xm3616.mp3`;
+    },
+    //使用后端的能力
+    getTrainTxtPath: function(file){
+      return 'C:\\Users\\wangx\\Desktop\\';
+    },
+    //删除文件
+    removeWavFile: function(file){
+      return true;
     }
   }
 }
