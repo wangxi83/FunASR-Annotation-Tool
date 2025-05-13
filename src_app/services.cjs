@@ -40,13 +40,24 @@ module.exports.ipcService =  {
     });
 
     //将blob录音数据保存为文件，返回文件地址
-    ipcMain.handle(EVENTS.SAVE_WAV, async (e, arrayBuffer, dir)=>{
+    ipcMain.handle(EVENTS.SAVE_WAV, async (e, {id, arrayBuffer}, dir)=>{
       if(!dir) throw new Error(`${EVENTS.SAVE_WAV}必须指定一个目录`);
-      return null;
+      let fileDir = path.join(dir, './train_text_dist');
+      await fs.mkdir(fileDir, {recursive: true});
+      let filePath = path.join(fileDir, `./${id}.wav`);
+      const buffer = Buffer.from(arrayBuffer);
+      // 保存到文件系统
+      try{
+        await fs.writeFile(filePath, buffer);
+      }catch(err){
+        throw new Error(`写入文件${filePath}失败： ${err}`);
+      }
+
+      return filePath;
     });
 
     // 删除文件
-    ipcMain.handle(EVENTS.OPEN_FILE, async (e, file)=>{
+    ipcMain.handle(EVENTS.REMOVE_WAV, async (e, file)=>{
       await fs.unlink(file);
     });
   }
@@ -74,8 +85,8 @@ module.exports.eAPI = {
         ipc.on('main:selectMic', (_event, value) => callback(value));
       },
       //将blob录音数据保存为文件，返回文件地址
-      saveRecord2File: async (arrayBuffer, dir)=>{
-        return await ipc.invoke(EVENTS.SAVE_WAV, arrayBuffer, dir);
+      saveRecord2File: async (data, dir)=>{
+        return await ipc.invoke(EVENTS.SAVE_WAV, data, dir);
       },
       //一个工具方法
       getTrainTxtPath: (file)=>{

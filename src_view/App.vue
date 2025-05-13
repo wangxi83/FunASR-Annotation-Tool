@@ -186,7 +186,7 @@ async function confirmVoice(){
       const arrayBuffer = reader.result;
       const dir = window.eAPI.getTrainTxtPath(filePath.value);
       // 将 ArrayBuffer 通过 IPC 发送到主进程保存，得到wav文件地址
-      cur_sentence.value.fileUrl = await window.eAPI.saveRecord2File(arrayBuffer, dir);
+      cur_sentence.value.fileUrl = await window.eAPI.saveRecord2File({id: cur_sentence.value.i, arrayBuffer}, dir);
       console.log(`wav文件已保存：${cur_sentence.value.fileUrl}`);
       cur_sentence.value.s = 1; //修改状态
       cur_sentence.value.duration = record_data.duration;
