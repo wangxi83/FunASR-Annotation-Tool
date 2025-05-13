@@ -1,6 +1,6 @@
 <script setup>
 // import { RouterLink, RouterView } from 'vue-router'
-import {ref, computed} from 'vue';
+import {ref, computed, reactive} from 'vue';
 import {onMounted} from 'vue';
 import {
   Document, ArrowLeft, ArrowRight, Headset, Check, SuccessFilled, RefreshLeft
@@ -15,13 +15,19 @@ let start_record = ref(false);
 let end_record = ref(false);
 let cur_sentence = ref(null);
 let myRecorder = new MyRecorder();
-let open_mic_selection = ref(false);
+let record_data = reactive({blob: null, blobUrl: null, fileUrl:null, duration: 0});
 
 onMounted(async ()=>{
   //注册一个主进程的监听，用于响应menu的打开点击事件
   window.eAPI.onMenuLoadFile(()=>{
     selectFile();
   });
+
+  //获取默认麦克风
+  await navigator.mediaDevices.getUserMedia({ audio: true });
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const mics = devices.filter(device => device.kind === 'audioinput'&&['default', 'communications'].indexOf(device.deviceId)<0);
+  myRecorder.setCurrentMic(mics[0]);
 });
 
 //计算锚点的属性
@@ -38,9 +44,29 @@ function onSentenceClick(sentence){
   cur_sentence.value = sentence;
   start_record.value = false;
   end_record.value = false;
+  record_data.fileUrl = sentence.fileUrl;
+  record_data.duration = sentence.duration;
 }
 
-function seekTo(where){
+async function seekTo(where, e){
+  if(record_data.blobUrl&&cur_sentence.value.s===0){
+    e.preventDefault();
+    try{
+      await ElMessageBox.confirm('当前录音未保存，是否继续？', '请确认', {
+        confirmButtonText: '是的',
+        cancelButtonText: '取消',
+        closeOnClickModal: false,
+        type: 'warning',
+      });
+      //如果继续，则重新点击，因为上面 e.preventDefault();
+      //不在catch中执行 e.preventDefault();的原因是， e.preventDefault()会先于异步方法执行
+      clearRecord();
+      document.getElementById(where).click();
+    }catch(err) {
+    }
+    return;
+  }
+
   if(where==='prev'){
     onSentenceClick(sentences.value[cur_sentence.value.index-1]);
   }else{
@@ -78,20 +104,44 @@ async function selectFile() {
   }
 }
 
+function clearRecord(){
+  if(record_data.blobUrl) (window.URL||webkitURL).revokeObjectURL(record_data.blobUrl);
+  record_data.blobUrl = null;
+  record_data.duration = 0;
+}
+
 //--------------操作相关------------
 let CONTRL = {
   REVIEW: 'REVIEW'
 }
 let cur_control = ref(null);
+// 录音文件状态
+const hasRecord = computed(()=>{
+  return !!(record_data.blobUrl || record_data.fileUrl);
+});
 
 async function startRecord(){
+  clearRecord();
   start_record.value = true;
   end_record.value = false;
+  try{
+    await myRecorder.doRecord();
+  }catch(err){
+    ElMessage.error(`出错啦！\n${err}`);
+  }
 }
 
 async function endRecord(){
   start_record.value = false;
   end_record.value = true;
+  try{
+    let r = await myRecorder.stopRecord();
+    record_data.blob = r.blob;
+    record_data.blobUrl = (window.URL||webkitURL).createObjectURL(record_data.blob);
+    record_data.duration = r.duration;
+  }catch(err){
+    ElMessage.error(`出错啦！\n${err}`);
+  }
 }
 
 async function redoRecordIfy(){
@@ -109,10 +159,15 @@ async function redoRecordIfy(){
 
 async function review(){
   cur_control.value = CONTRL.REVIEW;
+  let audio = document.getElementById("myAudio");
+  audio.play();
 }
 
 async function stopReview(){
   cur_control.value = null;
+  let audio = document.getElementById("myAudio");
+  audio.pause();
+  audio.currentTime = 0;
 }
 
 async function confirmVoice(){
@@ -145,11 +200,12 @@ async function confirmVoice(){
         </div>
         <div class="confirm">
           <template v-if="1">
-            <el-button v-if="cur_control!==CONTRL.REVIEW" circle @click="review" :disabled="cur_sentence.s===0"
-                       class="review-btn" :class="cur_sentence.s===1?'reviewable':null" >
-              <el-icon :class="cur_sentence.s===1?'icon-reviewable':null"><Headset /></el-icon>
+            <el-button v-if="cur_control!==CONTRL.REVIEW" circle @click="review"  :disabled="!hasRecord"
+                       class="review-btn" :class="hasRecord?'reviewable':null" >
+              <el-icon :class="hasRecord?'icon-reviewable':null"><Headset /></el-icon>
             </el-button>
-            <el-button v-if="cur_control===CONTRL.REVIEW" circle @click="stopReview">
+            <el-button v-if="cur_control===CONTRL.REVIEW" circle @click="stopReview"
+                       class="review-btn" :class="hasRecord?'reviewable':null" >
               <icon style="height: 16px">
                 <svg viewBox="0 0 1024 1024" width="16" height="16">
                   <path d="M163.386696 158.717861l705.252399 0 0 705.21556-705.252399 0 0-705.21556Z" p-id="3183" fill="red"></path>
@@ -157,15 +213,15 @@ async function confirmVoice(){
               </icon>
             </el-button>
           </template>
-          <el-button :icon="Check" circle  @click="confirmVoice" class="confirm-btn"
-                     :class="cur_sentence.s===1?'processed':null" :disabled="cur_sentence.s===1"/>
+          <el-button :icon="Check" circle  @click="confirmVoice" class="confirm-btn" :disabled="cur_sentence.s===1||!hasRecord"
+                     :class="{'processed': cur_sentence.s===1, 'confirm-able': hasRecord}"/>
         </div>
         <el-divider style="border-color: #f3f3f3;">
           <img v-if="start_record||cur_control===CONTRL.REVIEW" src="@/assets/wave.gif" style="height: 28px; width: 48px"/>
-          <span v-if="(end_record||cur_sentence.s===1)&&cur_control!==CONTRL.REVIEW">15″</span>
+          <span v-if="(end_record||cur_sentence.s===1)&&cur_control!==CONTRL.REVIEW">{{`${(record_data.duration/1000).toFixed(1)}″`}}</span>
         </el-divider>
         <div class="controller">
-          <a @click="cur_sentence.index===0?null:seekTo('prev')" :href="anchorPrev">
+          <a id='prev' @click="(e)=>{cur_sentence.index===0?null:seekTo('prev', e)}" :href="anchorPrev">
             <el-icon :size="20" class="pagectl prev" :class="cur_sentence.index===0?'disabled':null"><ArrowLeft /></el-icon>
           </a>
           <!-- 录音按钮。录音的时候颜色不同；已经完成录音的图标不同 -->
@@ -185,7 +241,7 @@ async function confirmVoice(){
               <el-icon style="color: white; width: 20px; height: 20px;"><RefreshLeft style="width: 20px;height: 20px;"/></el-icon>
             </el-button>
           </template>
-          <a @click="cur_sentence.index===sentences.length-1?null:seekTo('next')" :href="anchorNext">
+          <a id="next" @click="(e)=>{cur_sentence.index===sentences.length-1?null:seekTo('next', e)}" :href="anchorNext">
             <el-icon :size="20" class="pagectl next" :class="cur_sentence.index===sentences.length-1?'disabled':null"><ArrowRight /></el-icon>
           </a>
         </div>
@@ -208,6 +264,9 @@ async function confirmVoice(){
   </div>
   <!-- 麦克风选择弹窗，由electron渲染进程菜单唤起 -->
   <MicSelection @mic-changed="(mic)=>{myRecorder.setCurrentMic(mic)}"></MicSelection>
+  <!-- 用于播放录制的声音 -->
+  <audio id="myAudio" :src="record_data.fileUrl||record_data.blobUrl" controls
+         @ended="stopReview" style="display: none"></audio>
 </template>
 
 <style lang="scss" scoped>
@@ -237,6 +296,9 @@ async function confirmVoice(){
         }
         .confirm-btn {
           color: var(--el-text-color-secondary);
+          &.confirm-able {
+            border-color: var(--el-color-primary); color: var(--el-color-primary);
+          }
           &.processed {
             background-color: #26974a; color: #ffffff;
           }
