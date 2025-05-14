@@ -10,7 +10,7 @@ import 'element-plus/dist/index.css'
 if(import.meta.env.DEV){
   window.eAPI = {
     openFile: function(){
-      return "C:\\Users\\wangx\\Desktop\\train_text.txt";
+      return "C:\\Users\\wangx\\Desktop\\train\\train_text.txt";
     },
     // 读取训练文本
     readTrainText: function (filePath){
@@ -51,13 +51,31 @@ if(import.meta.env.DEV){
     saveRecord2File: function(arrayBuffer, dir){
       return `https://downsc.chinaz.net/Files/DownLoad/sound1/202504/xm3616.mp3`;
     },
-    //使用后端的能力
-    getTrainTxtPath: function(file){
-      return 'C:\\Users\\wangx\\Desktop\\';
-    },
     //删除文件
     removeWavFile: function(file){
       return true;
+    },
+    //响应主进程生成素材开始
+    onJsonlClipsGenStarted: (callback)=>{
+      window.addEventListener('main:jsonlClipsGenStarted', async ()=>{
+        await callback(1);
+      });
+    },
+    //响应主进程生成素材完成
+    onJsonlClipsGenEnded: (callback)=>{
+      window.addEventListener('main:jsonlClipsGenEnded', async (e)=>{
+        console.log(e);
+        if(e.detail.err){
+          await callback(null, e.detail.err);
+        }else{
+          await callback("C:\\Users\\wangx\\Desktop\\train\\");
+        }
+      });
+    },
+    //告诉主进程，录音已经准备好，可以吧menu中的“生成素材”启用
+    //TODO: 可以进一步改进整体逻辑，只要有一个ok，就可以启用。但是后台@see src_app/jsonl中实现需要实现只生成一部分wav.scp（并且把train_text.txt搞一份部分内容出来）的逻辑
+    jsonlClipsGenEnableIfy: (enabled)=>{
+      console.log(enabled);
     }
   }
 }

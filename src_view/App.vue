@@ -8,6 +8,7 @@ import {
 import {ElMessage, ElMessageBox} from 'element-plus'
 import MyRecorder from "./utils/recorder";
 import MicSelection from "./views/MicSelection.vue";
+import JsonlClipGenStatus from "./views/JsonlClipGenStatus.vue";
 
 let filePath = ref(null);
 let sentences = ref(null);
@@ -155,7 +156,10 @@ async function redoRecordIfy(){
     cur_sentence.value.s = 0; //修改状态
     await window.eAPI.removeWavFile(cur_sentence.value.fileUrl);
     cur_sentence.value.fileUrl = null;
+    //既然重来，一定就不能生成了
+    window.eAPI.jsonlClipsGenEnableIfy(false);
   }catch(e){
+    ElMessage.error(`出错啦！\n${e}`);
   }
 }
 
@@ -181,19 +185,35 @@ async function confirmVoice(){
         type: 'warning',
     });
     // 吧blob发给主进程进行保存
-    const reader = new FileReader();
-    reader.onloadend = async ()=>{
-      const arrayBuffer = reader.result;
-      const dir = window.eAPI.getTrainTxtPath(filePath.value);
-      // 将 ArrayBuffer 通过 IPC 发送到主进程保存，得到wav文件地址
-      cur_sentence.value.fileUrl = await window.eAPI.saveRecord2File({id: cur_sentence.value.i, arrayBuffer}, dir);
-      console.log(`wav文件已保存：${cur_sentence.value.fileUrl}`);
-      cur_sentence.value.s = 1; //修改状态
-      cur_sentence.value.duration = record_data.duration;
-      clearRecord();
-    };
-    reader.readAsArrayBuffer(record_data.blob);
+    await new Promise((rs, rj)=>{
+      const reader = new FileReader();
+      reader.onloadend = async ()=>{
+        const arrayBuffer = reader.result;
+        // 将 ArrayBuffer 通过 IPC 发送到主进程保存，得到wav文件地址
+        try{
+          cur_sentence.value.fileUrl = await window.eAPI.saveRecord2File({id: cur_sentence.value.i, arrayBuffer});
+          console.log(`wav文件已保存：${cur_sentence.value.fileUrl}`);
+          cur_sentence.value.s = 1; //修改状态
+          cur_sentence.value.duration = record_data.duration;
+          clearRecord();
+          rs();
+        }catch(er){
+          rj(er);
+        }
+      };
+      try{
+        reader.readAsArrayBuffer(record_data.blob);
+      }catch(err){
+        rj(err);
+      }
+    });
+    //计算是否可以生成素材了
+    if(!sentences.value.find(s=>s.s===0)){
+      //如果找不到没有处理过的
+      window.eAPI.jsonlClipsGenEnableIfy(1);
+    }
   }catch(e){
+    ElMessage.error(`出错啦！\n${e}`);
   }
 }
 </script>
@@ -280,6 +300,8 @@ async function confirmVoice(){
   </div>
   <!-- 麦克风选择弹窗，由electron渲染进程菜单唤起 -->
   <MicSelection @mic-changed="(mic)=>{myRecorder.setCurrentMic(mic)}"></MicSelection>
+  <!-- 显示jsonl的生成进度 -->
+  <JsonlClipGenStatus></JsonlClipGenStatus>
   <!-- 用于播放录制的声音 -->
   <audio id="myAudio" :src="record_data.blobUrl||cur_sentence.fileUrl" controls
          @ended="stopReview" style="display: none"></audio>

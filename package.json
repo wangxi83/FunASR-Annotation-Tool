@@ -2,7 +2,7 @@
   "name": "audio_ano",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
+  "type_temporary_deleted": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
