@@ -1,3 +1,5 @@
+[中文](https://github.com/wangxi83/FunASR-Annotation-Tool/edit/main/README.md)|[English](https://github.com/wangxi83/FunASR-Annotation-Tool/blob/main/README.en.md)
+
 # FunASR-Annotation-Tool
 
 因为工作需要，做了一个简单的FunASR语音引擎训练材料标注工具。
