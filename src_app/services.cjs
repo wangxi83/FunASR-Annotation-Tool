@@ -7,7 +7,7 @@ const path = require("path");
 const fs = require("node:fs/promises");
 // 默认处理模型是paraformer ， TODO：1)加载上一次的选择;2)修改menu中的checked选项
 global.MODEL_NAME='paraformer';
-const processor =  require('./jsonl').newInstance();
+const Processor =  require('./jsonl');
 
 const METHODS = {
   OPEN_FILE: 'method:openFile',
@@ -90,7 +90,8 @@ module.exports.ipcService =  {
   },
   //生成train_wav.scp以及对应的命令
   generateJsonlClips: async ()=>{
-    await processor.genJsonlClips();
+    let inst = Processor.instance();
+    await inst.genJsonlClips();
     return global.WORK_DIR;
   }
 }

@@ -3,25 +3,38 @@
  *
  */
 const { app, BrowserWindow, Menu, dialog } = require('electron');
-const path = require("path");
+const fs = require('node:fs/promises');
+const { existsSync } = require('node:fs');
+const path = require('node:path');
+const { find } = require('./src_app/utils/common-util.cjs');
+const logger = require('./src_app/utils/logger.cjs');
+/**
+* 监听未捕获的异常
+*/
+process.on('uncaughtException', async (error) => {
+  await fs.writeFile(path.join(__dirname, './last-crash-on-load.log'), error.stack);
+  process.exit(1);
+});
 const { ipcService, EVENTS } = require('./src_app/services.cjs');
 
-const createWindow = () => {
+let devmode = process.env.NODE_ENV==="develop";
+
+const createWindow = async () => {
   const win = new BrowserWindow({
     width: 800,
     height: 600,
     title: "FunASR语音引擎标注工具",
-    icon: path.join(__dirname, "./dist/logo.png"),
+    icon: path.join(__dirname, `${devmode?"./dist/logo.png":"./logo.png"}`),
     webPreferences: {
       webSecurity: false,
-      devTools: process.env.NODE_ENV==="develop",
-      preload: path.join(__dirname, './preload.cjs'),
+      devTools: devmode,
+      preload: find(process.cwd(), 'preload.cjs'),
       defaultEncoding: "UTF-8",
       sandbox: false // 不使用sandbox运行，否则preload无法加载本地模块，@see https://stackoverflow.com/questions/73511572/require-module-inside-preload-script-in-electron
     }
   });
 
-  win.loadFile(path.join(__dirname, './dist/index.html'));
+  win.loadFile(path.join(__dirname, `${devmode?"./dist/index.html":"./index.html"}`));
 
   //菜单
   const template = [
@@ -131,6 +144,8 @@ const createWindow = () => {
     }
   });
 }
+
+if (require('electron-squirrel-startup')) app.quit();
 
 app.whenReady().then(() => {
   ipcService.init();

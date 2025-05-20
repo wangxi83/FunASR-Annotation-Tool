@@ -8,10 +8,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "start": "chcp 65001 && electron ./EApp.cjs"
+    "electron-build": "node webpack.config.js",
+    "comment_of_below": "cd ./dist 是让process.cwd()进入dist，所以要node ../forge.make.js。原因是：forge的pakage阶段的dir参数无法修改，写死了process.cwd()",
+    "forge-make": "node forge.make.js",
+    "make-all": "vite build && node webpack.config.js && node forge.make.js"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "electron-squirrel-startup": "^1.0.1",
     "element-plus": "^2.9.9",
     "log4js": "^6.9.1",
     "recorder-core": "^1.3.25011100",
@@ -20,6 +24,9 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.8.1",
+    "@electron-forge/maker-squirrel": "^7.8.1",
+    "@electron-forge/maker-zip": "^7.8.1",
     "@eslint/js": "^9.22.0",
     "@vitejs/plugin-vue": "^5.2.3",
     "electron": "^28.0.0",
@@ -28,12 +35,41 @@
     "globals": "^16.0.0",
     "sass-embedded": "^1.87.0",
     "vite": "^6.2.4",
-    "vite-plugin-vue-devtools": "^7.7.2"
+    "vite-plugin-vue-devtools": "^7.7.2",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^6.0.1"
   },
-  "description": "This template should help get you started developing with Vue 3 in Vite.",
-  "comment": "\"main\": \"eslint.config.js\" -- 原始vue的内容，注释掉了，改成下面的Electron的",
+  "description": "FunASR语音标注工具",
+  "comment_1": "\"main\": \"eslint.config.js\" -- 原始vue的内容，注释掉了，改成下面的Electron的",
   "main": "./EApp.cjs",
   "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "author": "wangxi",
+  "license": "MIT",
+  "comment_2": "--------下面的部分是forge打包的配置，需要编程控制的部分，在forge.make.js中通过api处理--------------",
+  "config": {
+    "forge": {
+      "packagerConfig": {
+        "appVersion": "0.0.2",
+        "name": "FunASR语音引擎标注工具",
+        "appCopyright": "sobey dbu wangxi @ 2025",
+        "quiet": false,
+        "electronZipDir": "./electronZipDir",
+        "icon": "./dist/logo.ico",
+        "arch": "ia32",
+        "win32metadata": {
+          "ProductName": "FunASR语音引擎标注工具",
+          "CompanyName": "sobey dbu",
+          "FileDescription": "FunASR语音引擎标注工具"
+        }
+      },
+      "makers": [
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": [
+            "win32"
+          ]
+        }
+      ]
+    }
+  }
 }
